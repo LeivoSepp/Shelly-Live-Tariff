@@ -11,15 +11,15 @@ https://github.com/LeivoSepp/Shelly-Live-Tariff
 Elektrilevi https://elektrilevi.ee/en/vorguleping/vorgupaketid/eramu 
 Imatra https://imatraelekter.ee/vorguteenus/vorguteenuse-hinnakirjad/
 */
-let VORK1 = { dayRate: 77.2, nightRate: 77.2, dayMaxRate: 77.2, holidayMaxRate: 77.2 };
-let VORK2 = { dayRate: 60.7, nightRate: 35.1, dayMaxRate: 60.7, holidayMaxRate: 35.1 };
-let VORK4 = { dayRate: 36.9, nightRate: 21, dayMaxRate: 36.9, holidayMaxRate: 21 };
-let VORK5 = { dayRate: 52.9, nightRate: 30.3, dayMaxRate: 81.8, holidayMaxRate: 47.4 };
-let Partner24 = { dayRate: 60.7, nightRate: 60.7, dayMaxRate: 60.7, holidayMaxRate: 60.7 };
-let Partner24Plus = { dayRate: 38.6, nightRate: 38.6, dayMaxRate: 38.6, holidayMaxRate: 38.6 };
-let Partner12 = { dayRate: 72.4, nightRate: 42, dayMaxRate: 72.4, holidayMaxRate: 42 };
-let Partner12Plus = { dayRate: 46.4, nightRate: 27.1, dayMaxRate: 46.4, holidayMaxRate: 27.1 };
-let NONE = { dayRate: 0, nightRate: 0, dayMaxRate: 0, holidayMaxRate: 0 };
+const VORK1 = { dayRate: 77.2, nightRate: 77.2, dayMaxRate: 77.2, holidayMaxRate: 77.2 };
+const VORK2 = { dayRate: 60.7, nightRate: 35.1, dayMaxRate: 60.7, holidayMaxRate: 35.1 };
+const VORK4 = { dayRate: 36.9, nightRate: 21, dayMaxRate: 36.9, holidayMaxRate: 21 };
+const VORK5 = { dayRate: 52.9, nightRate: 30.3, dayMaxRate: 81.8, holidayMaxRate: 47.4 };
+const Partner24 = { dayRate: 60.7, nightRate: 60.7, dayMaxRate: 60.7, holidayMaxRate: 60.7 };
+const Partner24Plus = { dayRate: 38.6, nightRate: 38.6, dayMaxRate: 38.6, holidayMaxRate: 38.6 };
+const Partner12 = { dayRate: 72.4, nightRate: 42, dayMaxRate: 72.4, holidayMaxRate: 42 };
+const Partner12Plus = { dayRate: 46.4, nightRate: 27.1, dayMaxRate: 46.4, holidayMaxRate: 27.1 };
+const NONE = { dayRate: 0, nightRate: 0, dayMaxRate: 0, holidayMaxRate: 0 };
 
 /****** PROGRAM INITIAL SETTINGS ******/
 /* 
@@ -498,9 +498,9 @@ function calculateImatraTransferFees(epoch) {
 function setShellyTariff(eleringPrices) {
     const shEpochUtc = Shelly.getComponentStatus("sys").unixtime;
     const shHr = new Date(shEpochUtc * 1000).getHours();
-    let decodedURL = manualDecodeURI(s.apiUrl); //decode the URL
+    const decodedURL = manualDecodeURI(s.apiUrl); //decode the URL
     let currentPrice = eleringPrices[shHr][1]; //get the current price
-    currentPrice = currentPrice / 1000; //convert EUR/MWh to s/kWh
+    currentPrice = currentPrice / 1000; //convert EUR/MWh to EUR/kWh
     currentPrice = currentPrice * 1.22; //add VAT
     currentPrice = Math.round(currentPrice * 1000) / 1000; //round to 3 decimals
     Shelly.call(
