@@ -43,7 +43,7 @@ let _ = {
     loopRunning: false,
     dayInSec: 60 * 60 * 24,
     tsPrices: '',
-    updtDelay: Math.floor(Math.random() * 46), //delay for server requests (max 45min)
+    updtDelay: Math.floor(Math.random() * 46) + 5, //delay for server requests (random between 23:05-23:50)
     sId: Shelly.getCurrentScriptId(),
     pId: "Id" + Shelly.getCurrentScriptId() + ": ",
     networkProvider: "None",
@@ -408,7 +408,7 @@ function priceCalc(res, err, msg) {
         let hour = new Date(eleringPrices[a][0] * 1000).getHours();
         eleringPrices[a][0] = hour;
     }
-    scheduleTariffs(eleringPrices);
+    setShellyTariff(eleringPrices);
 }
 /**
  * Parse Elering prices from the response body.
@@ -494,22 +494,6 @@ function calculateImatraTransferFees(epoch) {
     }
 }
 
-//this function is called when the Elering prices are fetched
-let liveTariffTimer;
-function scheduleTariffs(eleringPrices) {
-    // send the current price to Shelly cloud
-    setShellyTariff(eleringPrices);
-    // schedule the next price update to be sent to Shelly cloud
-    liveTariffTimer = Timer.set(1000 * secondsToNextHour(), true, setShellyTariff, eleringPrices);
-}
-function secondsToNextHour() {
-    const now = new Date();
-    const seconds = now.getSeconds();
-    const minutes = now.getMinutes();
-    const remainingSecondsInMinute = 60 - seconds;
-    const remainingMinutes = 59 - minutes;
-    return remainingSecondsInMinute + (remainingMinutes * 60);
-}
 // function to send the live tariff to Shelly cloud
 function setShellyTariff(eleringPrices) {
     const shEpochUtc = Shelly.getComponentStatus("sys").unixtime;
@@ -529,14 +513,23 @@ function setShellyTariff(eleringPrices) {
             if (err != 0 || res === null || res.code != 200) {
                 handleError("Send Live Tariff to Shelly cloud error, try again in " + _.loopFreq / 60 + " min. "
                     + (res === null ? "No response" : JSON.parse(res.body).error));
-                Timer.clear(liveTariffTimer);
                 return;
             }
             let result = JSON.parse(res.body);
+            // schedule the next price update to be sent to Shelly cloud
+            Timer.set(1000 * secondsToNextHour(), false, setShellyTariff, eleringPrices);
             _.isUpdateRequired = false;
             console.log("Live Tariff of " + Math.floor(result.price * 1000) / 1000 + " s/kWh has been sent to the Shelly cloud. The next update will be sent in " + Math.round(secondsToNextHour() / 60) + " minutes.");
         }
     );
+}
+function secondsToNextHour() {
+    const now = new Date();
+    const seconds = now.getSeconds();
+    const minutes = now.getMinutes();
+    const remainingSecondsInMinute = 60 - seconds;
+    const remainingMinutes = 59 - minutes;
+    return remainingSecondsInMinute + (remainingMinutes * 60);
 }
 // Function to manually decode URI (Shelly doesn't support regex or decodeURI)
 function manualDecodeURI(encodedURI) {
