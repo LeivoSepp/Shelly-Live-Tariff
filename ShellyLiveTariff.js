@@ -53,7 +53,7 @@ let _ = {
 };
 let cntr = 0;
 
-let virtualComponents = [
+const virtualComponents = [
     {
         type: "group", id: 200, config: {
             name: "Shelly Live Tariff"
@@ -519,7 +519,7 @@ function setShellyTariff(eleringPrices) {
             // schedule the next price update to be sent to Shelly cloud
             Timer.set(1000 * secondsToNextHour(), false, setShellyTariff, eleringPrices);
             _.isUpdateRequired = false;
-            console.log("Live Tariff of " + Math.floor(result.price * 1000) / 1000 + " s/kWh has been sent to the Shelly cloud. The next update will be sent in " + Math.round(secondsToNextHour() / 60) + " minutes.");
+            console.log("Live Tariff of " + Math.floor(result.price * 1000) / 1000 + " EUR/kWh has been sent to the Shelly cloud. The next update will be sent in " + Math.round(secondsToNextHour() / 60) + " minutes.");
         }
     );
 }
