@@ -1,8 +1,6 @@
 /*
-This Shelly script is designed to retrieve energy market prices from Elering and
-update Shelly cloud energy price Live Tariff. 
-
-The script executes daily after 23:00 to send Live Tariffs for the following day.
+This Shelly script automates electricity tariffs in the Shelly cloud 
+by retrieving energy market prices from Elering and updating the Live Tariff hourly.
 
 created by Leivo Sepp, 07.01.2025
 https://github.com/LeivoSepp/Shelly-Live-Tariff 
