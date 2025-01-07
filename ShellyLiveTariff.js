@@ -495,6 +495,7 @@ function calculateImatraTransferFees(epoch) {
 }
 
 // function to send the live tariff to Shelly cloud
+let liveTariffTimer;
 function setShellyTariff(eleringPrices) {
     const shEpochUtc = Shelly.getComponentStatus("sys").unixtime;
     const shHr = new Date(shEpochUtc * 1000).getHours();
@@ -517,9 +518,9 @@ function setShellyTariff(eleringPrices) {
             }
             let result = JSON.parse(res.body);
             // schedule the next price update to be sent to Shelly cloud
-            Timer.set(1000 * secondsToNextHour(), false, setShellyTariff, eleringPrices);
+            liveTariffTimer = Timer.set(1000 * secondsToNextHour(), false, setShellyTariff, eleringPrices);
             _.isUpdateRequired = false;
-            console.log("Live Tariff of " + Math.floor(result.price * 1000) / 1000 + " EUR/kWh has been sent to the Shelly cloud. The next update will be sent in " + Math.round(secondsToNextHour() / 60) + " minutes.");
+            console.log("Live Tariff of " + Math.floor(result.price * 1000) / 1000 + " EUR/kWh incl. VAT has been sent to the Shelly cloud. The next update will be sent in " + Math.round(secondsToNextHour() / 60) + " minutes.");
         }
     );
 }
@@ -547,12 +548,13 @@ function manualDecodeURI(encodedURI) {
 }
 
 /**
- * Handle errors.
+ * Handle errors. Retry after 5 minutes
  */
 function handleError(error_message) {
     console.log(_.pId, "# Internet error ", error_message);
     _.isUpdateRequired = true;
     _.loopRunning = false;
+    Timer.clear(liveTariffTimer);
 }
 /**
  * Wait for the RPC calls to be completed before starting next function.
