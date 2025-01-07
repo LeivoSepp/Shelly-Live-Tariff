@@ -56,6 +56,10 @@ The script supports the following network packages from [Elektrilevi](https://el
 - `lv` (Latvia)
 - `lt` (Lithuania)
 
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
 ## Author
 
 Created by Leivo Sepp, 07.01.2025
