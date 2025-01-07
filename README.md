@@ -1,13 +1,11 @@
 # Shelly Live Tariff Script
 
-This Shelly script is designed to retrieve energy market prices from Elering and update Shelly cloud energy price Live Tariff. 
-
-The script executes daily after 23:00 to send Live Tariffs for the following day.
+This Shelly script automates electricity tariffs in the Shelly cloud by retrieving energy market prices from Elering and updating the Live Tariff hourly.
 
 ## Features
 
 - Retrieves electricity market prices from Elering.
-- Updates Shelly cloud with Live Tariffs.
+- Updates Shelly cloud with Live Tariffs hourly.
 - Supports multiple network packages and countries.
 - Stores user settings in Shelly KVS or Virtual components.
 - Automatically starts on boot.
@@ -19,7 +17,11 @@ The script executes daily after 23:00 to send Live Tariffs for the following day
    - `networkPacket`: Choose the appropriate network package (e.g., `VORK2`, `Partner24`, etc.).
    - `country`: Set the country code (e.g., `ee` for Estonia, `fi` for Finland, etc.).
    - `apiUrl`: Set your Shelly Cloud token.
-
+3. Configure Shelly cloud to use Live Tariff
+   - Open Shelly web portal
+   - Select Energy -> Electricity Tariff
+   - Under Tariff select Live
+   - Copy API URL
 
 <img src="images/EnableShellyLiveTariff.jpg" alt="Enable Shelly Live Tariff" width="750">
 
@@ -50,10 +52,6 @@ The script supports the following network packages from [Elektrilevi](https://el
 - `fi` (Finland)
 - `lv` (Latvia)
 - `lt` (Lithuania)
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## Author
 
