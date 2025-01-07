@@ -17,6 +17,9 @@ This Shelly script automates electricity tariffs in the Shelly cloud by retrievi
    - `networkPacket`: Choose the appropriate network package (e.g., `VORK2`, `Partner24`, etc.).
    - `country`: Set the country code (e.g., `ee` for Estonia, `fi` for Finland, etc.).
    - `apiUrl`: Set your Shelly Cloud token.
+
+<img src="images/ShellyVirtualCompLiveTariff.jpg" alt="Enable Shelly Live Tariff" width="400">
+
 3. Configure Shelly cloud to use Live Tariff
    - Open Shelly web portal
    - Select Energy -> Electricity Tariff
