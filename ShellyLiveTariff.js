@@ -1,9 +1,13 @@
 /*
+Created by Leivo Sepp, 07.01.2025
+Licensed under the MIT License
+https://github.com/LeivoSepp/Shelly-Live-Tariff 
+
+This feature allows you to view the exact cost of your 
+entire home's electricity usage if you have a Shelly Pro 3EM installed.
+
 This Shelly script automates electricity tariffs in the Shelly cloud 
 by retrieving energy market prices from Elering and updating the Live Tariff hourly.
-
-created by Leivo Sepp, 07.01.2025
-https://github.com/LeivoSepp/Shelly-Live-Tariff 
 */
 
 
@@ -498,29 +502,33 @@ function calculateImatraTransferFees(epoch) {
 let liveTariffTimer;
 function setShellyTariff(eleringPrices) {
     const shEpochUtc = Shelly.getComponentStatus("sys").unixtime;
-    const shHr = new Date(shEpochUtc * 1000).getHours();
+    const currentHour = new Date(shEpochUtc * 1000).getHours();
     const decodedURL = manualDecodeURI(s.apiUrl); //decode the URL
-    let currentPrice = eleringPrices[shHr][1]; //get the current price
+    let currentPrice = eleringPrices[currentHour][1]; //get the current price
     currentPrice = currentPrice / 1000; //convert EUR/MWh to EUR/kWh
     currentPrice = currentPrice * 1.22; //add VAT
     currentPrice = Math.round(currentPrice * 1000) / 1000; //round to 3 decimals
+
+    const requestBody = JSON.stringify({ price: currentPrice }); //create the request body
+
     Shelly.call(
         "HTTP.POST", {
         "url": decodedURL,
         "content_type": " application/json",
-        "body": JSON.stringify({ price: currentPrice })
+        "body": requestBody
     },
         function (res, err, msg) {
             if (err != 0 || res === null || res.code != 200) {
-                handleError("Send Live Tariff to Shelly cloud error, try again in " + _.loopFreq / 60 + " min. "
-                    + (res === null ? "No response" : JSON.parse(res.body).error));
+                const errorMessage = res === null ? "No response" : JSON.parse(res.body).error;
+                handleError("Send Live Tariff to Shelly cloud error, try again in " + _.loopFreq / 60 + " min. " + errorMessage);
                 return;
             }
-            let result = JSON.parse(res.body);
+            const result = JSON.parse(res.body);
+            const nextUpdateInMinutes = Math.round(secondsToNextHour() / 60);
             // schedule the next price update to be sent to Shelly cloud
             liveTariffTimer = Timer.set(1000 * secondsToNextHour(), false, setShellyTariff, eleringPrices);
             _.isUpdateRequired = false;
-            console.log("Live Tariff of " + Math.floor(result.price * 1000) / 1000 + " EUR/kWh incl. VAT has been sent to the Shelly cloud. The next update will be sent in " + Math.round(secondsToNextHour() / 60) + " minutes.");
+            console.log("Live Tariff of " + Math.floor(result.price * 1000) / 1000 + " EUR/kWh incl. VAT has been sent to the Shelly cloud. The next update will be sent in " + nextUpdateInMinutes + " minutes.");
         }
     );
 }
