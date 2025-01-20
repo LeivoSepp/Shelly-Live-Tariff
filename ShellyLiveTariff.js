@@ -72,6 +72,14 @@ const virtualComponents = [
         }
     },
     {
+        type: "text", id: 201, config: {
+            name: "Live Tariff updated",
+            default_value: "",
+            persisted: true,
+            meta: { ui: { view: "label", webIcon: 13 } }
+        }
+    },
+    {
         type: "enum", id: 200, config: {
             name: "Network Package",
             options: ["NONE", "VORK1", "VORK2", "VORK4", "VORK5", "Partner24", "Partner24Plus", "Partner12", "Partner12Plus"],
@@ -193,19 +201,20 @@ function storeSettingsKvs(userCongfigNotInKvs) {
         waitForRpcCalls(main);
     }
 }
-// Function to get all virtual components and delete them all before creating new -> this step only for new installations
+// Function to get all virtual components and delete them all before creating new
 function getAllVirtualComponents() {
-    Shelly.call("Shelly.GetComponents", { dynamic_only: true, include: ["status"] }, function (result, error_code, error_message) {
-        if (error_code === 0) {
-            if (result.components && result.components.length > 0) {
-                deleteVirtualComponents(result.components);
-            } else {
-                addVirtualComponent(virtualComponents);
-            }
+    Shelly.call("Shelly.GetComponents", { dynamic_only: true, include: ["status"] }, checkComponents);
+}
+function checkComponents(res, err, msg, data) {
+    if (err === 0) {
+        if (res.components && res.components.length > 0) {
+            deleteVirtualComponents(res.components);
         } else {
-            console.log(_.pId, "Failed to get virtual components. Error: " + error_message);
+            addVirtualComponent(virtualComponents);
         }
-    });
+    } else {
+        console.log(_.pId, "Failed to get virtual components. Error: " + msg);
+    }
 }
 // Function to delete all virtual components
 function deleteVirtualComponents(vComponents) {
@@ -214,11 +223,11 @@ function deleteVirtualComponents(vComponents) {
             let key = vComponents.splice(0, 1)[0].key;
             cntr++;
             Shelly.call("Virtual.Delete", { key: key },
-                function (res, error_code, error_message, data) {
-                    if (error_code === 0) {
+                function (res, err, msg, data) {
+                    if (err === 0) {
                         console.log(_.pId, "Deleted " + data.key + " virtual component");
                     } else {
-                        console.log(_.pId, "Failed to delete " + data.key + " virtual component. Error: " + error_message);
+                        console.log(_.pId, "Failed to delete " + data.key + " virtual component. Error: " + msg);
                     }
                     cntr--;
                 },
@@ -242,11 +251,11 @@ function addVirtualComponent(virtualComponents) {
             let config = component.config;
             cntr++;
             Shelly.call("Virtual.Add", { type: type, id: id, config: config },
-                function (res, error_code, error_message, data) {
-                    if (error_code === 0) {
+                function (res, err, msg, data) {
+                    if (err === 0) {
                         console.log(_.pId, "Added virtual component: " + data.type + ":" + data.id);
                     } else {
-                        console.log(_.pId, "Failed to add virtual component: " + data.type + ":" + data.id + ". Error: " + error_message);
+                        console.log(_.pId, "Failed to add virtual component: " + data.type + ":" + data.id + ". Error: " + msg);
                     }
                     cntr--;
                 },
@@ -264,51 +273,51 @@ function setGroupConfig() {
     const groupConfig = {
         id: 200,
         value: [
+            "text:201",
             "text:200",
             "enum:200",
             "enum:201"
         ]
     };
-    Shelly.call("Group.Set", groupConfig, function (result, error_code, error_message) {
-        if (error_code !== 0) {
-            console.log(_.pId, "Failed to set group config. Error: " + error_message);
+    Shelly.call("Group.Set", groupConfig, function (res, err, msg) {
+        if (err !== 0) {
+            console.log(_.pId, "Failed to set group config. Error: " + msg);
         }
     });
     readAllVirtualComponents();
 }
 function readAllVirtualComponents() {
-
     //this function reads all virtual components and stores the values to memory
-    Shelly.call("Shelly.GetComponents", { dynamic_only: true, include: ["status"] }, function (result, error_code, error_message) {
-        if (error_code === 0) {
-            const components = result.components;
-            result = null;
-            if (components && components.length > 0) {
-                for (let i in components) {
-                    switch (components[i].key) {
-                        case "text:200":
-                            s.apiUrl = components[i].status.value;
-                            break;
-                        case "enum:200":
-                            s.networkPacket = components[i].status.value;
-                            break;
-                        case "enum:201":
-                            s.country = components[i].status.value;
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                waitForRpcCalls(main);
-            } else {
-                console.log(_.pId, "No virtual components found.");
-            }
-        } else {
-            console.log(_.pId, "Failed to get virtual components. Error: " + error_message);
-        }
-    });
+    Shelly.call("Shelly.GetComponents", { dynamic_only: true, include: ["status"] }, processComponents);
 }
-
+function processComponents(res, err, msg) {
+    if (err === 0) {
+        const components = res.components;
+        res = null;
+        if (components && components.length > 0) {
+            for (let i in components) {
+                switch (components[i].key) {
+                    case "text:200":
+                        s.apiUrl = components[i].status.value;
+                        break;
+                    case "enum:200":
+                        s.networkPacket = components[i].status.value;
+                        break;
+                    case "enum:201":
+                        s.country = components[i].status.value;
+                        break;
+                    default:
+                        break;
+                }
+            }
+            waitForRpcCalls(main);
+        } else {
+            console.log(_.pId, "No virtual components found.");
+        }
+    } else {
+        console.log(_.pId, "Failed to get virtual components. Error: " + msg);
+    }
+}
 /**
 This is the main script where all the logic starts.
 */
@@ -316,6 +325,7 @@ function main() {
     setKVS();
     if (_.oldVersion === 0 || s.apiUrl === "") {
         console.log(_.pId, "Please set API URL value in KVS or Virtual components and then restart the script.");
+        Shelly.call('Script.Stop', { id: _.sId });
         return;
     }
     //check if Shelly has time
@@ -400,7 +410,7 @@ function priceCalc(res, err, msg) {
     res = null; //clear memory
     let eleringPrices = parseEleringPrices(csvData);
     //if elering API returns less than 23 rows, the script will try to download the data again after set of minutes
-    if (eleringPrices.length < 23) {
+    if (eleringPrices.length < 24) {
         handleError("Elering API didn't return prices, check again in " + _.loopFreq / 60 + " min.");
         return;
     }
@@ -516,21 +526,35 @@ function setShellyTariff(eleringPrices) {
         "url": decodedURL,
         "content_type": " application/json",
         "body": requestBody
-    },
-        function (res, err, msg) {
-            if (err != 0 || res === null || res.code != 200) {
-                const errorMessage = res === null ? "No response" : JSON.parse(res.body).error;
-                handleError("Send Live Tariff to Shelly cloud error, try again in " + _.loopFreq / 60 + " min. " + errorMessage);
-                return;
-            }
-            const result = JSON.parse(res.body);
-            const nextUpdateInMinutes = Math.round(secondsToNextHour() / 60);
-            // schedule the next price update to be sent to Shelly cloud
-            liveTariffTimer = Timer.set(1000 * secondsToNextHour(), false, setShellyTariff, eleringPrices);
-            _.isUpdateRequired = false;
-            console.log("Live Tariff of " + Math.floor(result.price * 1000) / 1000 + " EUR/kWh incl. VAT has been sent to the Shelly cloud. The next update will be sent in " + nextUpdateInMinutes + " minutes.");
-        }
-    );
+    }, processPostResponce, { eleringPrices: eleringPrices });
+}
+function processPostResponce(res, err, msg, data) {
+    if (err != 0 || res === null || res.code != 200) {
+        const errorMessage = res === null ? "No response" : JSON.parse(res.body).error;
+        handleError("Send Live Tariff to Shelly cloud error, try again in " + _.loopFreq / 60 + " min. " + errorMessage);
+        return;
+    }
+    const result = JSON.parse(res.body);
+    const nextUpdateInMinutes = Math.round(secondsToNextHour() / 60);
+    // schedule the next price update to be sent to Shelly cloud
+    liveTariffTimer = Timer.set(1000 * secondsToNextHour(), false, setShellyTariff, data.eleringPrices);
+    updateField(result.price);
+    _.isUpdateRequired = false;
+    console.log("Live Tariff of " + result.price + " EUR/kWh incl. VAT has been sent to the Shelly cloud. The next update will be sent in " + nextUpdateInMinutes + " minutes.");
+}
+function updateField(price) {
+    const time = getHHMMDDMMYYY(new Date());
+    const priceText = price + " €/kWh";
+    const text = time + " (" + priceText + ")";
+    Shelly.call("Text.Set", { id: 201, value: text },);
+    Shelly.call("KVS.set", { key: "LiveTariffUpdated" + _.sId, value: text });
+}
+function getHHMMDDMMYYY(date) {
+    return (date.getHours() < 10 ? "0" + date.getHours() : date.getHours()) + ":"
+        + (date.getMinutes() < 10 ? "0" + date.getMinutes() : date.getMinutes()) + " "
+        + date.getDate() + "."
+        + (date.getMonth() + 1) + "."
+        + date.getFullYear();
 }
 function secondsToNextHour() {
     const now = new Date();
