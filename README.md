@@ -76,6 +76,7 @@ To avoid double-counting energy costs at the room or total account level, device
    - Configure Shelly Pro 3EM to include power monitoring in both the room and total account levels.
    - Configure other Shelly monitoring devices in the same room to exclude their data from the total room and total account energy.
 
+|||
 |-|-|
 |<img src="images/Configure3EM.jpg" alt="Shelly Live Tariff" width="200">|<img src="images/ConfigureDevice.jpg" alt="Shelly Live Tariff" width="200">|
 
@@ -84,6 +85,7 @@ To avoid missing energy costs at the room or double-counting at the total accoun
    - Configure Shelly Pro 3EM to include power monitoring in total account level.
    - Configure other Shelly monitoring devices to include their data fom the total room and exclude from total account energy.
 
+|||
 |-|-|
 |<img src="images/Configure3EM.jpg" alt="Shelly Live Tariff" width="200">|<img src="images/ConfigureDeviceRoom.jpg" alt="Shelly Live Tariff" width="200">|
 
