@@ -1,8 +1,8 @@
-# Shelly Live Tariff Script
+# Shelly Live Tariff Skript
 
-Selle skripti abil saate vaadata oma koduse elektritarbimise täpset maksumust Shelly Cloudis kui teil on paigaldatud Shelly Pro 3EM.
+Selle skripti abil saate vaadata oma koduse elektritarbimise täpset maksumust Shelly Cloudis iga energia monitooringut võimaldava [Shelly seadmega.](https://www.shelly.com/collections/energy-metering)
 
-- [Shelly Live Tariff Script](#shelly-live-tariff-script)
+- [Shelly Live Tariff Skript](#shelly-live-tariff-skript)
   - [Omadused](#omadused)
   - [Paigaldamine](#paigaldamine)
       - [Uus paigaldus](#uus-paigaldus)

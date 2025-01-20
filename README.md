@@ -1,6 +1,6 @@
 # Shelly Live Tariff Script
 
-This feature allows you to view the exact cost of your electricity usage if you have any Shelly power monitoring device installed.
+This feature allows you to view the exact cost of your electricity usage if you have any [Shelly power monitoring](https://www.shelly.com/collections/energy-metering) device installed.
 
 - [Shelly Live Tariff Script](#shelly-live-tariff-script)
   - [Features](#features)

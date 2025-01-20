@@ -3,8 +3,9 @@ Created by Leivo Sepp, 07.01.2025
 Licensed under the MIT License
 https://github.com/LeivoSepp/Shelly-Live-Tariff 
 
-This feature allows you to view the exact cost of your 
-entire home's electricity usage if you have a Shelly Pro 3EM installed.
+This feature allows you to view the exact cost of your electricity usage 
+if you have any Shelly power monitoring device installed.
+(https://www.shelly.com/collections/energy-metering)
 
 This Shelly script automates electricity tariffs in the Shelly cloud 
 by retrieving energy market prices from Elering and updating the Live Tariff hourly.
