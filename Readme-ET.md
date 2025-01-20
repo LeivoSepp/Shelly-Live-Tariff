@@ -75,16 +75,16 @@ Et vältida energiakulude topeltarvestust ruumi või konto tasemel, tuleb seadme
    - Seadista Shelly Pro 3EM, et see kaasaks energiaseire nii ruumi kui ka konto tasemel.
    - Seadista teised Shelly seadmed samas ruumis nii, et need välistaksid oma andmed ruumi ja konto kogutarbimisest.
 
-<img src="images/Configure3EM.jpg" alt="Shelly Live Tariff" width="200">
-<img src="images/ConfigureDevice.jpg" alt="Shelly Live Tariff" width="200">
+|-|-|
+|<img src="images/Configure3EM.jpg" alt="Shelly Live Tariff" width="200">|<img src="images/ConfigureDevice.jpg" alt="Shelly Live Tariff" width="200">|
 
 2. Shelly Pro 3EM konto tasemel + Individuaalsed Shelly monitooringu seadmed erinevates ruumides. <br>
 Et vältida energiakulu puudumist ruumis või topeltarvestust konto tasemel, tuleb seadmed õigesti seadistada:
    - Seadista Shelly Pro 3EM, et see kaasaks energiaseire konto tasemel.
    - Seadista teised Shelly seadmed, et need kaasaksid andmed ruumi tasemel ja välistaksid need konto kogutarbimisest.
 
-<img src="images/Configure3EM.jpg" alt="Shelly Live Tariff" width="200">
-<img src="images/ConfigureDeviceRoom.jpg" alt="Shelly Live Tariff" width="200">
+|-|-|
+|<img src="images/Configure3EM.jpg" alt="Shelly Live Tariff" width="200">|<img src="images/ConfigureDeviceRoom.jpg" alt="Shelly Live Tariff" width="200">|
 
 3. Individuaalsed Shelly energia monitooringu seadmed erinevates ruumides, konto taseme mõõtmine puudub. <br>
 Et vältida energiakulude puudumist konto tasemel, tuleb seadmed õigesti seadistada:
