@@ -400,13 +400,13 @@ function gEle() {
             }
             // Epoch
             row[0] = Number(body.substring(aPos, body.indexOf("\"", aPos)));
-            row[0] = new Date(row[0] * 1000).getHours();    //convert epoch to hour
             // Skip "; after timestamp
             aPos = body.indexOf("\"", aPos) + 2;
             // Price
             aPos = body.indexOf(";\"", aPos) + 2;
             row[1] = Number(body.substring(aPos, body.indexOf("\"", aPos)).replace(",", "."));
             row[1] += fFee(row[0]);     //add transfer fee
+            row[0] = new Date(row[0] * 1000).getHours();    //convert epoch to hour
 
             eler.push(row);
             aPos = body.indexOf("\n", aPos);
