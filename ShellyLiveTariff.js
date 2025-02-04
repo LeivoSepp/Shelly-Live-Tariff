@@ -54,7 +54,7 @@ let _ = {
     sId: Shelly.getCurrentScriptId(),
     pId: "Id" + Shelly.getCurrentScriptId() + ": ",
     prov: "None",
-    newV: 1.2,
+    newV: 1.3,
     cdOk: false,    //configuration data OK
     sdOk: false,    //system data OK
 };
@@ -139,6 +139,7 @@ function memC(dt) {
     c.api = dt.API;
     c.pack = dt.EnergyProvider;
     c.cnty = dt.Country;
+    c.mnKv = typeof dt.ManualKVS === "boolean" ? dt.ManualKVS : c.mnKv; 
     return c;
 }
 // ConfigurationData data to KVS store
@@ -147,6 +148,7 @@ function kvsC() {
     cdat.API = c.api;
     cdat.EnergyProvider = c.pack;
     cdat.Country = c.cnty;
+    cdat.ManualKVS = c.mnKv;
     return cdat;
 }
 // Get KVS SystemData into memory
@@ -198,13 +200,8 @@ function inst() {
             gVc();
         }
     } else {
-        if (_.cdOk && _.sdOk) {
-            print(_.pId, "Existing KVS mode");
-            main();
-        } else {
-            print(_.pId, "New KVS mode installation");
-            tKvs();
-        }
+        print(_.pId, "Script in KVS mode");
+        tKvs();
     }
 }
 // Store configuration data to KVS
