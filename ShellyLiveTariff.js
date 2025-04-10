@@ -54,11 +54,23 @@ let _ = {
     sId: Shelly.getCurrentScriptId(),
     pId: "Id" + Shelly.getCurrentScriptId() + ": ",
     prov: "None",
-    newV: 1.3,
-    cdOk: false,    //configuration data OK
-    sdOk: false,    //system data OK
+    newV: 1.4,
+    cdOk: false,    //conf OK
+    sdOk: false,    //sys OK
 };
 let cntr = 0;
+
+// map kvs to virtual components
+function mpVC() {
+    return [
+        { val: "pack", vc: "enum:200" },
+        { val: "cnty", vc: "enum:201" },
+        { val: "api", vc: "text:200" },
+        { val: "mnKv", vc: "" },
+    ]
+}
+
+// Virtual components settings
 function dtVc() {
     return [
         {
@@ -88,7 +100,7 @@ function dtVc() {
                 options: ["NONE", "VORK1", "VORK2", "VORK4", "VORK5", "PARTN24", "PARTN24PL", "PARTN12", "PARTN12PL"],
                 default_value: "VORK2",
                 persisted: true,
-                meta: { ui: { view: "dropdown", webIcon: 22, titles: { "NONE": "No package", "VORK1": "Võrk1 Base", "VORK2": "Võrk2 DayNight", "VORK4": "Võrk4 DayNight", "VORK5": "Võrk5 DayNightPeak", "Partner24": "Partner24 Base", "Partner24Plus": "Partner24Plus Base", "Partner12": "Partner12 DayNight", "Partner12Plus": "Partner12Plus DayNight" } } }
+                meta: { ui: { view: "dropdown", webIcon: 22, titles: { "NONE": "No package", "VORK1": "Võrk1 Base", "VORK2": "Võrk2 DayNight", "VORK4": "Võrk4 DayNight", "VORK5": "Võrk5 DayNightPeak", "PARTN24": "Partner24 Base", "PARTN24PL": "Partner24Plus Base", "PARTN12": "Partner12 DayNight", "PARTN12PL": "Partner12Plus DayNight" } } }
             }
         },
         {
@@ -139,7 +151,7 @@ function memC(dt) {
     c.api = dt.API;
     c.pack = dt.EnergyProvider;
     c.cnty = dt.Country;
-    c.mnKv = typeof dt.ManualKVS === "boolean" ? dt.ManualKVS : c.mnKv; 
+    c.mnKv = typeof dt.ManualKVS === "boolean" ? dt.ManualKVS : c.mnKv;
     return c;
 }
 // ConfigurationData data to KVS store
@@ -305,36 +317,15 @@ function sGrp() {
 
 //read virtual components - existing installation
 function rVc() {
-    Shelly.call("Shelly.GetComponents", { dynamic_only: true, include: ["status"] },
-        function (res, err, msg) {
-            if (err === 0) {
-                let comp = res.components;
-                res = null;
-                if (comp && comp.length > 0) {
-                    for (let i in comp) {
-                        let val = comp[i].status.value;
-                        switch (comp[i].key) {
-                            case "text:200":
-                                c.api = val;
-                                break;
-                            case "enum:200":
-                                c.pack = val;
-                                break;
-                            case "enum:201":
-                                c.cnty = val;
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                    wait(main);
-                } else {
-                    console.log(_.pId, "No virtual components found.");
-                }
-            } else {
-                console.log(_.pId, "Failed to get virtual components. Error: " + msg);
+    for (let i in Object.keys(c)) {
+        for (let j in mpVC()) {
+            if (Object.keys(c)[i] === mpVC()[j].val) {
+                c[Object.keys(c)[i]] = Virtual.getHandle(mpVC()[j].vc) !== null ? Virtual.getHandle(mpVC()[j].vc).getValue() : c[Object.keys(c)[i]];
+                break;
             }
-        });
+        }
+    }
+    main();
 }
 
 // Main function
