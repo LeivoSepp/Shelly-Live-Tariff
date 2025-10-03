@@ -24,7 +24,17 @@ function pack() {
         PARTN24PL: { dRt: 38.6, nRt: 38.6, dMRt: 38.6, hMRt: 38.6 },
         PARTN12: { dRt: 72.4, nRt: 42, dMRt: 72.4, hMRt: 42 },
         PARTN12PL: { dRt: 46.4, nRt: 27.1, dMRt: 46.4, hMRt: 27.1 },
+        PAMATA1: { dRt: 39.62, nRt: 39.62, dMRt: 39.62, hMRt: 39.62 },
+        SPECIAL1: { dRt: 158.48, nRt: 158.48, dMRt: 158.48, hMRt: 158.48 },
         NONE: { dRt: 0, nRt: 0, dMRt: 0, hMRt: 0 },
+    }
+}
+function vat() {
+    return {
+        ee: 1.24,   //Estonia
+        fi: 1.24,   //Finland
+        lt: 1.21,   //Lithuania
+        lv: 1.21,   //Latvia
     }
 }
 /****** PROGRAM INITIAL SETTINGS ******/
@@ -34,7 +44,7 @@ To modify these user settings later, you’ll need to access the Shelly KVS via:
 Once you’ve updated the settings, restart the script to apply the changes or wait for the next scheduled run.
 */
 let c = {
-    pack: "VORK2",     // ELEKTRILEVI/IMATRA transmission fee: NONE, VORK1, VORK2, VORK4, VORK5, PARTN24, PARTN24PL, PARTN12, PARTN12PL
+    pack: "VORK2",     // ELEKTRILEVI/IMATRA transmission fee: NONE, VORK1, VORK2, VORK4, VORK5, PARTN24, PARTN24PL, PARTN12, PARTN12PL, PAMATA1, SPECIAL1
     cnty: "ee",        // Estonia-ee, Finland-fi, Lithuania-lt, Latvia-lv
     api: "API_url",    // Shelly Cloud token
     mnKv: false,       // Forcing KVS mode in case of Virtual components support
@@ -54,7 +64,7 @@ let _ = {
     sId: Shelly.getCurrentScriptId(),
     pId: "Id" + Shelly.getCurrentScriptId() + ": ",
     prov: "None",
-    newV: 1.4,
+    newV: 1.5,
     cdOk: false,    //conf OK
     sdOk: false,    //sys OK
 };
@@ -97,10 +107,10 @@ function dtVc() {
         {
             type: "enum", id: 200, config: {
                 name: "Network Package",
-                options: ["NONE", "VORK1", "VORK2", "VORK4", "VORK5", "PARTN24", "PARTN24PL", "PARTN12", "PARTN12PL"],
+                options: ["NONE", "VORK1", "VORK2", "VORK4", "VORK5", "PARTN24", "PARTN24PL", "PARTN12", "PARTN12PL", "PAMATA1", "SPECIAL1"],
                 default_value: "VORK2",
                 persisted: true,
-                meta: { ui: { view: "dropdown", webIcon: 22, titles: { "NONE": "No package", "VORK1": "Võrk1 Base", "VORK2": "Võrk2 DayNight", "VORK4": "Võrk4 DayNight", "VORK5": "Võrk5 DayNightPeak", "PARTN24": "Partner24 Base", "PARTN24PL": "Partner24Plus Base", "PARTN12": "Partner12 DayNight", "PARTN12PL": "Partner12Plus DayNight" } } }
+                meta: { ui: { view: "dropdown", webIcon: 22, titles: { "NONE": "No package", "VORK1": "Võrk1 Base", "VORK2": "Võrk2 DayNight", "VORK4": "Võrk4 DayNight", "VORK5": "Võrk5 DayNightPeak", "PARTN24": "Partner24 Base", "PARTN24PL": "Partner24Plus Base", "PARTN12": "Partner12 DayNight", "PARTN12PL": "Partner12Plus DayNight", "PAMATA1": "Pamata-1", "SPECIAL1": "Speciālais 1" } } }
             }
         },
         {
@@ -344,6 +354,8 @@ function main() {
         _.prov = "Elektlevi";
     } else if (c.pack.substring(0, 4) == "PART") {
         _.prov = "Imatra";
+    } else if (c.pack.substring(0, 4) == "PAMA" || c.pack.substring(0, 7) == "SPECIAL") {
+        _.prov = "Lv";
     }
     print(_.pId, "Network provider: ", _.prov, c.pack);
     gEle();
@@ -359,7 +371,7 @@ function gEle() {
     const isoT = new Date((epch + gTz() + 60 * 60 * 24 * addD) * 1000).toISOString().slice(0, 10);
     const isoN = new Date((epch + gTz() + (60 * 60 * 24 * (addD + 1))) * 1000).toISOString().slice(0, 10);
     const dtSt = isoT + "T" + (24 - gTz() / 3600) + ":00Z";
-    const dtEn = isoN + "T" + (24 - gTz() / 3600 - 1) + ":00Z";
+    const dtEn = isoN + "T" + (24 - gTz() / 3600) + ":00Z";
 
     let url = "https://dashboard.elering.ee/api/nps/price/csv?fields=";
     url += c.cnty + "&start=" + dtSt + "&end=" + dtEn;
@@ -388,16 +400,27 @@ function gEle() {
             }
             // Epoch
             row[0] = Number(body.substring(aPos, body.indexOf("\"", aPos)));
-            // Skip "; after timestamp
-            aPos = body.indexOf("\"", aPos) + 2;
-            // Price
-            aPos = body.indexOf(";\"", aPos) + 2;
-            row[1] = Number(body.substring(aPos, body.indexOf("\"", aPos)).replace(",", "."));
-            row[1] += fFee(row[0]);     //add transfer fee
-            row[0] = new Date(row[0] * 1000).getHours();    //convert epoch to hour
+            let pric = 0;
+            let hr = new Date(row[0] * 1000).getHours();
+            let hr15 = hr;
+            let avg = 0;
+            while (hr === hr15 && hr15 < 24) //sum 1 hour prices
+            {
+                avg++;
+                aPos = body.indexOf(";\"", aPos) + 2; //skip ;
+                aPos = body.indexOf(";\"", aPos) + 2; //find price
+                pric += Number(body.substring(aPos, body.indexOf("\"", aPos)).replace(",", "."));
 
+                aPos = body.indexOf("\n", aPos);        //next line
+                let nxt = body.indexOf("\"", aPos) + 1; //next epoch
+                if (nxt === 0) {
+                    break; // EOF
+                }
+                hr15 = new Date(Number(body.substring(nxt, body.indexOf("\"", nxt))) * 1000).getHours();
+            }
+            row[1] = pric / avg;  //avg price for the hour
+            row[1] += fFee(row[0]);     //add transfer fee
             eler.push(row);
-            aPos = body.indexOf("\n", aPos);
         }
         //if API returns less than 24 rows, the script will try to download the data again in 5 minutes
         if (eler.length < 24) {
@@ -459,6 +482,8 @@ function fFee(epoch) {
                 return c.pack.dRt;
             }
         }
+    } else if (_.prov === "Lv") {
+        return c.pack.dRt;
     } else {
         return 0;
     }
@@ -470,7 +495,7 @@ function trif(eler) {
     let cHr = new Date(Shelly.getComponentStatus("sys").unixtime * 1000).getHours();
     let cPrc = eler[cHr][1];    //get the current price
     cPrc = cPrc / 1000;         //convert EUR/MWh to EUR/kWh
-    cPrc = cPrc * 1.22;         //add VAT
+    cPrc = cPrc * eval("vat()." + c.cnty);         //add VAT
     cPrc = Math.round(cPrc * 1000) / 1000; //round to 3 decimals
 
     Shelly.call(
