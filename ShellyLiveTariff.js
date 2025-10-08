@@ -31,10 +31,10 @@ function pack() {
 }
 function vat() {
     return {
-        ee: 1.24,   //Estonia
-        fi: 1.24,   //Finland
-        lt: 1.21,   //Lithuania
-        lv: 1.21,   //Latvia
+        ee: 1.24,    //Estonia
+        fi: 1.255,   //Finland
+        lt: 1.21,    //Lithuania
+        lv: 1.21,    //Latvia
     }
 }
 /****** PROGRAM INITIAL SETTINGS ******/
@@ -45,6 +45,7 @@ Once you’ve updated the settings, restart the script to apply the changes or w
 */
 let c = {
     pack: "VORK2",     // ELEKTRILEVI/IMATRA transmission fee: NONE, VORK1, VORK2, VORK4, VORK5, PARTN24, PARTN24PL, PARTN12, PARTN12PL, PAMATA1, SPECIAL1
+    is15: false,       // 1h or 15min measurements
     cnty: "ee",        // Estonia-ee, Finland-fi, Lithuania-lt, Latvia-lv
     api: "API_url",    // Shelly Cloud token
     mnKv: false,       // Forcing KVS mode in case of Virtual components support
@@ -64,7 +65,7 @@ let _ = {
     sId: Shelly.getCurrentScriptId(),
     pId: "Id" + Shelly.getCurrentScriptId() + ": ",
     prov: "None",
-    newV: 1.5,
+    newV: 1.6,
     cdOk: false,    //conf OK
     sdOk: false,    //sys OK
 };
@@ -74,6 +75,7 @@ let cntr = 0;
 function mpVC() {
     return [
         { val: "pack", vc: "enum:200" },
+        { val: "is15", vc: "boolean:200" },
         { val: "cnty", vc: "enum:201" },
         { val: "api", vc: "text:200" },
         { val: "mnKv", vc: "" },
@@ -114,12 +116,21 @@ function dtVc() {
             }
         },
         {
+            type: "boolean", id: 200, config: {
+                name: "Meter supports",
+                default_value: false,
+                persisted: true,
+                meta: { ui: { view: "toggle", webIcon: 7, titles: ["1h", "15min"] } }
+            }
+        },
+
+        {
             type: "enum", id: 201, config: {
                 name: "Market Price Country",
                 options: ["ee", "fi", "lv", "lt"],
                 default_value: "ee",
                 persisted: true,
-                meta: { ui: { view: "dropdown", webIcon: 9, titles: { "ee": "Estonia", "fi": "Findland", "lv": "Latvia", "lt": "Lithuania" } } }
+                meta: { ui: { view: "dropdown", webIcon: 9, titles: { "ee": "Estonia", "fi": "Finland", "lv": "Latvia", "lt": "Lithuania" } } }
             }
         },
     ];
@@ -142,24 +153,32 @@ function sAut() {
 // check Virtual components support
 function isVC() {
     const info = Shelly.getDeviceInfo();
-    return (info.gen === 3 || (info.gen === 2 && info.app.substring(0, 3) == "Pro")) && isNewerVersion('1.4.3', info.ver) && !c.mnKv;
-}
-// compare versions
-function isNewerVersion(oldV, newV) {
-    const oldP = oldV.split('.')
-    const newP = newV.split('.')
-    for (var i = 0; i < newP.length; i++) {
-        let a = ~~newP[i] // parse int
-        let b = ~~oldP[i] // parse int
-        if (a > b) return true
-        if (a < b) return false
+    if (c.mnKv === true) {
+        print(_.pId, "ManualKVS=true → forcing KVS mode");
+        return false;
     }
-    return false
+
+    // Gen4 ja Gen3 OK; Gen2 ainult Pro + min FW 1.4.3
+    const gen2ok = (info.gen === 2 && (info.app || "").substring(0, 3) === "Pro" && verC('1.4.3', info.ver));
+    return (info.gen === 4 || info.gen === 3 || gen2ok);
+}
+// compare Shelly FW versions
+function verC(old, newV) {
+    const oldP = old.split('.');
+    const newP = newV.split('.');
+    for (var i = 0; i < newP.length; i++) {
+        let a = ~~newP[i]; // parse int
+        let b = ~~oldP[i]; // parse int
+        if (a > b) return true;
+        if (a < b) return false;
+    }
+    return false;
 }
 // Get KVS ConfigurationData into memory
 function memC(dt) {
     c.api = dt.API;
     c.pack = dt.EnergyProvider;
+    c.is15 = typeof dt.IsEnergy15min === "boolean" ? dt.IsEnergy15min : c.is15;
     c.cnty = dt.Country;
     c.mnKv = typeof dt.ManualKVS === "boolean" ? dt.ManualKVS : c.mnKv;
     return c;
@@ -169,6 +188,7 @@ function kvsC() {
     let cdat = {};
     cdat.API = c.api;
     cdat.EnergyProvider = c.pack;
+    cdat.IsEnergy15min = c.is15;
     cdat.Country = c.cnty;
     cdat.ManualKVS = c.mnKv;
     return cdat;
@@ -311,6 +331,7 @@ function sGrp() {
         id: 200,
         value: [
             "text:201",
+            "boolean:200",
             "text:200",
             "enum:200",
             "enum:201"
@@ -390,6 +411,9 @@ function gEle() {
         res = null;
         let eler = [];
         let aPos = 0;
+        let sum = 0;
+        let cnt = 0;
+        let cHr = -1;
         while (aPos >= 0) {
             body = body.substring(aPos);
             aPos = 0;
@@ -400,30 +424,30 @@ function gEle() {
             }
             // Epoch
             row[0] = Number(body.substring(aPos, body.indexOf("\"", aPos)));
-            let pric = 0;
+            aPos = body.indexOf(";\"", aPos) + 2; //skip ;
+            aPos = body.indexOf(";\"", aPos) + 2; //find price
+            let pric = Number(body.substring(aPos, body.indexOf("\"", aPos)).replace(",", "."));
             let hr = new Date(row[0] * 1000).getHours();
-            let hr15 = hr;
-            let avg = 0;
-            while (hr === hr15 && hr15 < 24) //sum 1 hour prices
-            {
-                avg++;
-                aPos = body.indexOf(";\"", aPos) + 2; //skip ;
-                aPos = body.indexOf(";\"", aPos) + 2; //find price
-                pric += Number(body.substring(aPos, body.indexOf("\"", aPos)).replace(",", "."));
-
-                aPos = body.indexOf("\n", aPos);        //next line
-                let nxt = body.indexOf("\"", aPos) + 1; //next epoch
-                if (nxt === 0) {
-                    break; // EOF
-                }
-                hr15 = new Date(Number(body.substring(nxt, body.indexOf("\"", nxt))) * 1000).getHours();
+            aPos = body.indexOf("\n", aPos);        //next line
+            if (cHr === -1) { //first row
+                cHr = hr;
+                sum = pric;
+                cnt = 1;
+            } else if (!c.is15 && cHr === hr) { //1h data, same hour
+                sum += pric;
+                cnt++;
             }
-            row[1] = pric / avg;  //avg price for the hour
-            row[1] += fFee(row[0]);     //add transfer fee
-            eler.push(row);
+            if (c.is15 || cHr !== hr) { //new hour or 15min data
+                row[1] = (c.is15 ? pric : sum / cnt) + fFee(row[0]);
+                eler.push(row);
+                sum = pric;
+                cnt = 1;
+                cHr = hr;
+            }
         }
-        //if API returns less than 24 rows, the script will try to download the data again in 5 minutes
-        if (eler.length < 24) {
+
+        //if API returns less than 24 or 96 rows, the script will try to download the data again in 5 minutes
+        if (!c.is15 && eler.length < 24 || c.is15 && eler.length < 96) {
             hErr("Elering API didn't return prices, check again in " + _.freq / 60 + " min.");
             return;
         }
@@ -492,11 +516,14 @@ function fFee(epoch) {
 // send the live tariff to Shelly cloud
 let l_hd;
 function trif(eler) {
-    let cHr = new Date(Shelly.getComponentStatus("sys").unixtime * 1000).getHours();
-    let cPrc = eler[cHr][1];    //get the current price
+    let sysT = new Date(Shelly.getComponentStatus("sys").unixtime * 1000)
+    let cHr = sysT.getHours();
+    let cMin = sysT.getMinutes();
+    let idx = c.is15 ? cHr * 4 + (cMin / 15 | 0) : cHr; //index for 15min or 1h data
+    let cPrc = eler[idx][1];    //get the current price
     cPrc = cPrc / 1000;         //convert EUR/MWh to EUR/kWh
     cPrc = cPrc * eval("vat()." + c.cnty);         //add VAT
-    cPrc = Math.round(cPrc * 1000) / 1000; //round to 3 decimals
+    cPrc = cPrc.toFixed(5); //round to 5 decimals
 
     Shelly.call(
         "HTTP.POST", {
@@ -540,11 +567,12 @@ function frmT(date) {
 }
 // seconds to next hour
 function sNxH() {
+    const dur = c.is15 ? 15 : 60;
     const now = new Date();
     const sec = now.getSeconds();
     const min = now.getMinutes();
     const rSec = 60 - sec;
-    const rMin = 59 - min;
+    const rMin = dur - 1 - min % dur; //-1 because sec are added separately
     return rSec + (rMin * 60);
 }
 // decode URI
@@ -633,4 +661,3 @@ t_hd = Timer.set(1000, true, fcTm);
 
 //start the main loop component
 Timer.set(_.freq * 1000, true, loop);
-
