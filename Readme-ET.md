@@ -11,6 +11,7 @@
     - [Kuidas panna skript tööle KVS-modes](#kuidas-panna-skript-tööle-kvs-modes)
     - [Skripti KVS häälestamine](#skripti-kvs-häälestamine)
     - [Shelly Live Tariff häälestamine](#shelly-live-tariff-häälestamine)
+    - [Scripti uuendamine](#scripti-uuendamine)
   - [Kasutamine](#kasutamine)
     - [Shelly häälestamine](#shelly-häälestamine)
     - [Rahalise kulu monitoorimine](#rahalise-kulu-monitoorimine)
@@ -26,9 +27,9 @@
 See Shelly skript automatiseerib elektritariifi Shelly pilves. Elektri börsihinnad laetakse alla Eleringi API kaudu ja Shelly Live Tariff uuendatakse iga tunni järel.
 
 - Börsihindade allalaadimine Eleringi API kaudu.
-- Shelly Cloud Live Tariff uuendamine iga tunni järel.
-- Toetab Elektrilevi ja Imatra võrgupakette ja nelja riiki.
-- Salvestab kasutaja seaded Shelly KVS-i või Virtuaalsetesse komponentidesse (gen2 Pro või gen3 seadmete korral).
+- Shelly Cloud Live Tariff uuendamine iga tunni või 15min järel.
+- Toetab Elektrilevi, Imatra ja Läti võrgupakette ja nelja riiki.
+- Salvestab kasutaja seaded Shelly KVS-i või Virtuaalsetesse komponentidesse (gen2 Pro või uuemate seadmete korral).
 - Skript käivitub automaatselt Shelly käivitumisel.
 
 ## Paigaldamine
@@ -37,10 +38,11 @@ See Shelly skript automatiseerib elektritariifi Shelly pilves. Elektri börsihin
 1. Kopeerige `ShellyLiveTariff.js` sisu oma Shelly seadme skriptiredaktorisse.
 2. Käivita script et tekitada Virtual Komponendid või JSON parameetrid KVS-i.
 3. Konfigureerige skripti seaded.
-4. Käivitage uuesti skript. Nüüd on kõik täisautomaatne ja rohkem midagi muuta pole tarvis.
    - `networkPacket`: Valige sobiv võrgupakett (nt `VORK2`, `Partner24` jne).
+   - `IsEnergy15min` / `Meter supports`: 1h või 15min elektriarvesti. Vaikimisi 1h, pange see 15min ehk `true` ainult juhul kui elektriarvesti seda toetab.
    - `country`: Määrake riigi kood (nt `ee` Eesti jaoks, `fi` Soome jaoks jne).
    - `apiUrl`: Siia pange oma Shelly Cloud token.
+4. Käivitage uuesti skript. Nüüd on kõik täisautomaatne ja rohkem midagi muuta pole tarvis.
 
 ### Skripti Virtual Componentide häälestamine
 
@@ -62,7 +64,8 @@ Ava skript ja pane ManualKVS parameeter ``mnKv: true``. Peale seda installeerub 
 
 ```js
 let c = {
-    pack: "VORK2",     // ELEKTRILEVI/IMATRA transmission fee: NONE, VORK1, VORK2, VORK4, VORK5, PARTN24, PARTN24PL, PARTN12, PARTN12PL
+    pack: "VORK2",     // NONE, VORK1, VORK2, VORK4, VORK5, PARTN24, PARTN24PL, PARTN12, PARTN12PL, PAMATA1, SPECIAL1
+    is15: false,       // 1h or 15min measurements
     cnty: "ee",        // Estonia-ee, Finland-fi, Lithuania-lt, Latvia-lv
     api: "API_url",    // Shelly Cloud token
     mnKv: false,       // Forcing KVS mode in case of Virtual components support
@@ -71,9 +74,15 @@ let c = {
 
 ### Skripti KVS häälestamine
 
+> [!IMPORTANT]
+> Shelly uues firmwares 1.7.1 on tootjapoolne viga, mis ei võimalda KVS json andmeid salvestada. Vaadata saab, kuid muuta ning salvestada pole võimalik.
+> 
+> Seega KVS-modes on vajalik skripti parameetrid panna paika skripti enda sees. Võrgupakett, API-url jne. 
+
 Kui skript on **KVS-modes**, saab seadeid muuta seadme veebilehe kaudu, kasutades selle IP-aadressi: Menu → Advanced → KVS.  
 Kõik kasutaja häälestused asuvad JSON formaadis parameetri ``LiveTariffConf`` all.
    - `API`: Shelly Cloud API token.
+   - `IsEnergy15min`: 1h või 15min elektriarvesti. Vaikimisi `false` ehk 1h, pange see 15min ehk `true` ainult juhul kui elektriarvesti seda toetab.
    - `EnergyProvider`: kirjuta siia võrgupaketi nimi (e.g., `VORK2`, `PARTN24`, etc.).
    - `Country`: riigikood (e.g., `ee` for Estonia, `fi` for Finland, etc.).
 
@@ -91,6 +100,8 @@ Skript toetab järgmisi [Elektrilevi](https://elektrilevi.ee/en/vorguleping/vorg
 - `Partner24Plus`
 - `Partner12`
 - `Partner12Plus`
+- `PAMATA1`
+- `SPECIAL1`
 - `NONE`
 
 **Toetatud Riigid**
@@ -109,6 +120,16 @@ Konfigureerige Shelly Cloud kasutama Live Tariffi
 4. Kopeerige API URL ja kleepige see skripti Live Tariffi seadistustesse.
 
 <img src="images/EnableShellyLiveTariff.jpg" alt="Enable Shelly Live Tariff" width="750">
+
+### Scripti uuendamine
+Scripti uuendamiseks kopeeri kood lihtsalt Shelly koodiaknasse ja kõik töötab automaatselt edasi, kuna häälestus on salvestatud Virtual komponentides või KVS-hoidlas.
+
+> [!IMPORTANT]
+> Seoses 15min elektriarvesti toetuse lisamisega tekkis juurde üks virtuaalne komponent mis tekitatakse ainult uue skripti installatsiooni korral.
+> Toimi järgmiselt:
+> - Kustuta KVS-hoidlast kirje LiveTariffConf
+> - Käivita skript, nüüd toimub uus LiveTariff installatsioon.
+> - Häälesta uuesti API url ja teised vajalikud parameetrid.
 
 ## Kasutamine
 

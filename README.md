@@ -11,6 +11,7 @@
     - [How to force script to KVS mode](#how-to-force-script-to-kvs-mode)
     - [Configuration using KVS](#configuration-using-kvs)
     - [Shelly Live Tariff Configuration](#shelly-live-tariff-configuration)
+    - [Updating the Script](#updating-the-script)
   - [Usage](#usage)
     - [Device configuration](#device-configuration)
     - [Cost monitoring](#cost-monitoring)
@@ -26,9 +27,9 @@
 This Shelly script automates electricity tariffs in the Shelly cloud by retrieving energy market prices from Elering and updating the Live Tariff hourly.
 
 - Retrieves electricity market prices from Elering.
-- Updates Shelly cloud with Live Tariffs hourly.
+- Updates Shelly cloud with Live Tariffs hourly or every 15min.
 - Supports multiple network packages and countries.
-- Stores user settings in Shelly KVS or Virtual components (gen2 Pro or gen3 devices).
+- Stores user settings in Shelly KVS or Virtual components (gen2 Pro or never devices).
 - Automatically starts on boot.
 
 ## Installation
@@ -38,11 +39,15 @@ This Shelly script automates electricity tariffs in the Shelly cloud by retrievi
 1. Copy the contents of `ShellyLiveTariff.js` to your Shelly device's script editor.
 2. Run the script to create KVS or Virtual Components.
 3. Configure script settings either in KVS or using Virtual Components.
+   - `networkPacket`: Set the energy transmission packet (`VORK2`, `Partner24` etc).
+   - `IsEnergy15min` / `Meter supports`: 1h or 15min electricity meter. Default value 1h (`false`), set it 15min or `true` only if your meter supports it.
+   - `country`: Set the country (`ee` for Estonia, `fi` for Finland etc).
+   - `apiUrl`: Shelly Cloud token.
 4. Run the script again. Now everything is fully automatic.
 
 ### Configuration using Virtual Components
 
-Shelly Gen2 Pro and Gen3 devices support **Virtual Components**, with all settings managed directly through the Shelly web page or mobile app.  
+Shelly Gen2 Pro and never devices supports **Virtual Components**, with all settings managed directly through the Shelly web page or mobile app.  
 Please make sure to configure properly Shelly API URL and Network Package, as well as country.
 
 > [!NOTE]
@@ -60,7 +65,8 @@ Open the script and set the ManualKVS parameter ``mnKv: true``. Now the script w
 
 ```js
 let c = {
-    pack: "VORK2",     // ELEKTRILEVI/IMATRA transmission fee: NONE, VORK1, VORK2, VORK4, VORK5, PARTN24, PARTN24PL, PARTN12, PARTN12PL
+    pack: "VORK2",     // NONE, VORK1, VORK2, VORK4, VORK5, PARTN24, PARTN24PL, PARTN12, PARTN12PL, PAMATA1, SPECIAL1
+    is15: false,       // 1h or 15min measurements
     cnty: "ee",        // Estonia-ee, Finland-fi, Lithuania-lt, Latvia-lv
     api: "API_url",    // Shelly Cloud token
     mnKv: false,       // Forcing KVS mode in case of Virtual components support
@@ -69,9 +75,15 @@ let c = {
 
 ### Configuration using KVS
 
+> [!IMPORTANT]
+> There is a bug in Shelly firmware version 1.7.1 that prevents saving JSON data to KVS. You can view the data, but you cannot modify or save it.
+> 
+> Therefore, when using KVS mode, the script parameters (such as network package, API URL, etc.) must be defined directly within the script itself before installation.
+
 If the script in **KVS mode**, then settings can be modified via the device's web page using its IP address: Menu → Advanced → KVS.  
 All the user settings are stored in JSON format under the key ``LiveTariffConf``.
    - `API`: Set your Shelly Cloud token.
+   - `IsEnergy15min`: 1h or 15min electricity meter. Default value 1h (`false`), set it 15min or `true` only if your meter supports it.
    - `EnergyProvider`: Choose the appropriate network package (e.g., `VORK2`, `PARTN24`, etc.).
    - `Country`: Set the country code (e.g., `ee` for Estonia, `fi` for Finland, etc.).
 
@@ -89,6 +101,8 @@ The script supports the following network packages from [Elektrilevi](https://el
 - `PARTN24P`
 - `PARTN12`
 - `PARTN12P`
+- `PAMATA1`
+- `SPECIAL1`
 - `NONE`
 
 **Supported Countries**
@@ -107,6 +121,17 @@ Configure Shelly cloud to use Live Tariff
 4. Copy API URL and paste it to Live Tariff settings.
 
 <img src="images/EnableShellyLiveTariff.jpg" alt="Enable Shelly Live Tariff" width="650">
+
+### Updating the Script
+
+To update the script, simply copy the new code into the Shelly code editor — everything will continue to work automatically, since the configuration is stored in Virtual Components or in the KVS storage.
+
+> [!IMPORTANT]
+> With the addition of 15-minute electricity meter support, a new virtual component has been introduced, which is created only during a fresh script installation.
+> Follow these steps:
+> - Delete the LiveTariffConf entry from the KVS storage.
+> - Run the script — this will trigger a new LiveTariff installation.
+> - Reconfigure the API URL and other necessary parameters.
 
 ## Usage
 
