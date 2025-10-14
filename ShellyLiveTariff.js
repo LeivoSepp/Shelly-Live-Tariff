@@ -65,7 +65,7 @@ let _ = {
     sId: Shelly.getCurrentScriptId(),
     pId: "Id" + Shelly.getCurrentScriptId() + ": ",
     prov: "None",
-    newV: 1.6,
+    newV: 1.7,
     cdOk: false,    //conf OK
     sdOk: false,    //sys OK
 };
@@ -556,6 +556,7 @@ function fKvs(pric) {
     Shelly.call("Text.Set", { id: 201, value: s.live },);
     Shelly.call("KVS.set", { key: "LiveTariffSys" + _.sId, value: JSON.stringify(kvsS()) });
     s.vers, s.last, s.live = null;
+    _.isLp = false;
 }
 
 function frmT(date) {
