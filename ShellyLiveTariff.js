@@ -61,7 +61,7 @@ let _ = {
     freq: 300, //300 seconds / 5 min
     isLp: false,
     tsPr: '',
-    updD: Math.floor(Math.random() * 46) + 5, //delay for server requests (random between 23:05-23:50)
+    updD: Math.floor(Math.random() * 13) + 46, //delay for server requests (random between 23:46-23:59)
     sId: Shelly.getCurrentScriptId(),
     pId: "Id" + Shelly.getCurrentScriptId() + ": ",
     prov: "None",
@@ -478,7 +478,7 @@ function fFee(epoch) {
         if ((mnth >= 10 || mnth <= 2) && (day === 0 || day === 6) && hour >= 16 && hour < 20) {
             // peak holiday: Nov-Mar, SA-SU at 16:00–20:00
             return c.pack.hMRt;
-        } else if ((mnth >= 10 || mnth <= 2) && ((hour >= 9 && hour < 12) || (hour >= 16 && hour < 20))) {
+        } else if ((mnth >= 10 || mnth <= 2) && day > 0 && day < 6 && ((hour >= 9 && hour < 12) || (hour >= 16 && hour < 20))) {
             // peak daytime: Nov-Mar: MO-FR at 09:00–12:00 and at 16:00–20:00
             return c.pack.dMRt;
         } else if (hour < 7 || hour >= 22 || day === 6 || day === 0) {
