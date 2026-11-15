@@ -60,12 +60,18 @@ let _ = {
     upRq: false,
     freq: 300, //300 seconds / 5 min
     isLp: false,
+    run: false,     //the price sending timer is running
     tsPr: '',
-    updD: Math.floor(Math.random() * 13) + 46, //delay for server requests (random between 23:46-23:59)
+    updD: Math.floor(Math.random() * 13) + 46, //minute of the hour for the Elering request (random between 46-58)
     sId: Shelly.getCurrentScriptId(),
     pId: "Id" + Shelly.getCurrentScriptId() + ": ",
     prov: "None",
-    newV: 1.7,
+    fee: null,      //transfer fees of the network package
+    qSec: 900,      //one Elering price row is a quarter-hour
+    sl: 3600,       //slot length (s): 1h or 15min
+    smr: false,     //device clock is on summer time (Imatra tariff)
+    eler: null,     //price slots [start epoch, EUR/MWh with the transfer fee, length (s)] of the current and the next hour
+    newV: 1.8,
     cdOk: false,    //conf OK
     sdOk: false,    //sys OK
 };
@@ -379,85 +385,118 @@ function main() {
         _.prov = "Lv";
     }
     print(_.pId, "Network provider: ", _.prov, c.pack);
-    gEle();
+    const st = fHr(Shelly.getComponentStatus("sys").unixtime);
+    if (st) {
+        gEle(st);
+    } else {
+        trif();
+    }
 }
 
-// Get electricity market price CSV file from Elering
-function gEle() {
-    const epch = Shelly.getComponentStatus("sys").unixtime;
-    const shHr = new Date(epch * 1000).getHours();
-    // After 23:00 tomorrow's energy prices are used
-    // before 23:00 today's energy prices are used.
-    const addD = shHr >= 23 ? 0 : -1;
-    const isoT = new Date((epch + gTz() + 60 * 60 * 24 * addD) * 1000).toISOString().slice(0, 10);
-    const isoN = new Date((epch + gTz() + (60 * 60 * 24 * (addD + 1))) * 1000).toISOString().slice(0, 10);
-    const dtSt = isoT + "T" + (24 - gTz() / 3600) + ":00Z";
-    const dtEn = isoN + "T" + (24 - gTz() / 3600) + ":00Z";
+// Price slot that covers the epoch, null if none
+function slot(t) {
+    for (let i = 0; _.eler !== null && i < _.eler.length; i++) {
+        if (_.eler[i][0] <= t && t < _.eler[i][0] + _.eler[i][2]) {
+            return _.eler[i];
+        }
+    }
+    return null;
+}
 
-    let url = "https://dashboard.elering.ee/api/nps/price/csv?fields=";
-    url += c.cnty + "&start=" + dtSt + "&end=" + dtEn;
+// Start of the hour to request from Elering, 0 if no request is needed:
+// the current hour when it has no prices, else the next hour from minute _.updD on
+function fHr(now) {
+    const hr = now - now % 3600;
+    if (slot(now) === null) {
+        return hr;
+    }
+    return now - hr >= _.updD * 60 && slot(hr + 3600) === null ? hr + 3600 : 0;
+}
+
+// Get the prices of one hour (four quarter-hours) starting at st from Elering
+function gEle(st) {
+    _.fee = pack()[c.pack] || pack().NONE;  //load the transfer fee
+    _.sl = c.is15 ? 900 : 3600;
+    _.smr = gTz() === 3 * 60 * 60;
+    let url = "https://dashboard.elering.ee/api/nps/price/csv?fields=" + c.cnty;
+    url += "&start=" + new Date(st * 1000).toISOString() + "&end=" + new Date((st + 3600) * 1000).toISOString();
     print(_.pId, "Elering query: ", url);
+
     Shelly.call("HTTP.GET", { url: url, timeout: 5, ssl_ca: "*" }, function (res, err) {
         url = null;
         if (err != 0 || res === null || res.code != 200 || !res.body_b64) {
             hErr("Elering HTTP.GET error, check again in " + _.freq / 60 + " min.");
             return;
         }
-        c.pack = eval("pack()." + c.pack);      //load the transfer fee 
-
-        // Convert base64 to text and discard header
-        res.body_b64 = atob(res.body_b64);
-        let body = res.body_b64.substring(res.body_b64.indexOf("\n") + 1);
+        let body = atob(res.body_b64);  //decode base64 to text
         res = null;
-        let eler = [];
-        let aPos = 0;
-        let sum = 0;
-        let cnt = 0;
-        let cHr = -1;
-        while (aPos >= 0) {
-            body = body.substring(aPos);
-            aPos = 0;
-            let row = [0, 0];
-            aPos = body.indexOf("\"", aPos) + 1;
-            if (aPos === 0) {
-                break; // End of data
-            }
-            // Epoch
-            row[0] = Number(body.substring(aPos, body.indexOf("\"", aPos)));
-            aPos = body.indexOf(";\"", aPos) + 2; //skip ;
-            aPos = body.indexOf(";\"", aPos) + 2; //find price
-            let pric = Number(body.substring(aPos, body.indexOf("\"", aPos)).replace(",", "."));
-            let hr = new Date(row[0] * 1000).getHours();
-            aPos = body.indexOf("\n", aPos);        //next line
-            if (cHr === -1) { //first row
-                cHr = hr;
-                sum = pric;
-                cnt = 1;
-            } else if (!c.is15 && cHr === hr) { //1h data, same hour
-                sum += pric;
-                cnt++;
-            }
-            if (c.is15 || cHr !== hr) { //new hour or 15min data
-                row[1] = (c.is15 ? pric : sum / cnt) + fFee(row[0]);
-                eler.push(row);
-                sum = pric;
-                cnt = 1;
-                cHr = hr;
-            }
-        }
-
-        //if API returns less than 24 or 96 rows, the script will try to download the data again in 5 minutes
-        if (!c.is15 && eler.length < 24 || c.is15 && eler.length < 96) {
+        const rows = pCsv(body, st);
+        body = null;
+        //if Elering returns less than four quarter-hour prices, the script will try to download the data again in 5 minutes
+        if (rows === null) {
             hErr("Elering API didn't return prices, check again in " + _.freq / 60 + " min.");
             return;
         }
-        //store the timestamp into memory
-        _.tsPr = Math.floor(Date.now() / 1000.0);
-
+        // keep the slots of the current and the next hours, replace the requested hour
+        const now = Shelly.getComponentStatus("sys").unixtime;
+        let keep = [];
+        for (let i = 0; _.eler !== null && i < _.eler.length; i++) {
+            const sl = _.eler[i];
+            if (sl[0] + sl[2] > now && (sl[0] < st || sl[0] >= st + 3600)) {
+                keep.push(sl);
+            }
+        }
+        for (let i = 0; i < rows.length; i++) {
+            keep.push(rows[i]);
+        }
+        _.eler = keep;
+        _.tsPr = now;
         print(_.pId, "We got market prices from Elering ", new Date().toString());
-
-        trif(eler);
+        if (_.run && st > now) {    //next hour's prices: the sending timer picks them up at the start of the hour
+            _.upRq = false;
+            _.isLp = false;
+        } else {
+            trif();
+        }
     });
+}
+
+// Read the CSV rows "epoch";"local time";"price" of the hour starting at st, null if a row is missing, extra or unreadable.
+// A slot (1h or 15min) is the average price plus the average transfer fee of its quarter-hours.
+function pCsv(body, st) {
+    const n = _.sl / _.qSec;            //quarter-hours in one slot
+    let rows = [];
+    let nRw = 0;
+    let acc = 0;
+    let fAc = 0;
+    let pos = body.indexOf("\n");       //skip the header
+    while (pos >= 0 && nRw < 4) {
+        let aPos = body.indexOf("\"", pos) + 1;
+        if (aPos === 0) {
+            break; // End of data
+        }
+        const ts = Number(body.substring(aPos, body.indexOf("\"", aPos)));
+        if (ts !== st + nRw * _.qSec) {
+            break; // unexpected row
+        }
+        aPos = body.indexOf(";\"", aPos) + 2; //skip ;
+        aPos = body.indexOf(";\"", aPos) + 2; //find price
+        const raw = body.substring(aPos, body.indexOf("\"", aPos)).replace(",", ".");
+        const pric = Number(raw);
+        if (raw === "" || pric !== pric) {
+            break; // unreadable price
+        }
+        acc += pric;
+        fAc += fFee(ts);
+        nRw++;
+        if (nRw % n === 0) {
+            rows.push([ts - (n - 1) * _.qSec, (acc + fAc) / n, _.sl]);
+            acc = 0;
+            fAc = 0;
+        }
+        pos = body.indexOf("\n", aPos);       //next line
+    }
+    return nRw === 4 ? rows : null;
 }
 // Get timezone offset in seconds 
 function gTz() {
@@ -477,37 +516,37 @@ function fFee(epoch) {
     if (_.prov === "Elektlevi") {
         if ((mnth >= 10 || mnth <= 2) && (day === 0 || day === 6) && hour >= 16 && hour < 20) {
             // peak holiday: Nov-Mar, SA-SU at 16:00–20:00
-            return c.pack.hMRt;
+            return _.fee.hMRt;
         } else if ((mnth >= 10 || mnth <= 2) && day > 0 && day < 6 && ((hour >= 9 && hour < 12) || (hour >= 16 && hour < 20))) {
             // peak daytime: Nov-Mar: MO-FR at 09:00–12:00 and at 16:00–20:00
-            return c.pack.dMRt;
+            return _.fee.dMRt;
         } else if (hour < 7 || hour >= 22 || day === 6 || day === 0) {
             //night-time: MO-FR at 22:00–07:00, SA-SU all day
-            return c.pack.nRt;
+            return _.fee.nRt;
         } else {
             //daytime: MO-FR at 07:00–22:00
-            return c.pack.dRt;
+            return _.fee.dRt;
         }
     } else if (_.prov === "Imatra") {
-        if (gTz() / 60 / 60 === 3) { //summer time
+        if (_.smr) { //summer time
             if (hour < 8 || day === 6 || day === 0) {
                 //summer-night-time: MO-FR at 00:00–08:00, SA-SU all day
-                return c.pack.nRt;
+                return _.fee.nRt;
             } else {
                 //daytime: MO-FR at 08:00–24:00
-                return c.pack.dRt;
+                return _.fee.dRt;
             }
         } else {
             if (hour < 7 || hour >= 23 || day === 6 || day === 0) {
                 //winter-night-time: MO-FR at 23:00–07:00, SA-SU all day
-                return c.pack.nRt;
+                return _.fee.nRt;
             } else {
                 //daytime: MO-FR at 07:00–23:00
-                return c.pack.dRt;
+                return _.fee.dRt;
             }
         }
     } else if (_.prov === "Lv") {
-        return c.pack.dRt;
+        return _.fee.dRt;
     } else {
         return 0;
     }
@@ -515,12 +554,16 @@ function fFee(epoch) {
 
 // send the live tariff to Shelly cloud
 let l_hd;
-function trif(eler) {
-    let sysT = new Date(Shelly.getComponentStatus("sys").unixtime * 1000)
-    let cHr = sysT.getHours();
-    let cMin = sysT.getMinutes();
-    let idx = c.is15 ? cHr * 4 + (cMin / 15 | 0) : cHr; //index for 15min or 1h data
-    let cPrc = eler[idx][1];    //get the current price
+function trif() {
+    Timer.clear(l_hd);
+    _.run = false;
+    const now = Shelly.getComponentStatus("sys").unixtime;
+    const sl = slot(now);
+    if (sl === null) {
+        hErr("No price for the current " + (c.is15 ? "15 min" : "hour") + ", get the prices again in " + _.freq / 60 + " min.");
+        return;
+    }
+    let cPrc = sl[1];           //get the current price
     cPrc = cPrc / 1000;         //convert EUR/MWh to EUR/kWh
     cPrc = cPrc * eval("vat()." + c.cnty);         //add VAT
     cPrc = cPrc.toFixed(5); //round to 5 decimals
@@ -533,18 +576,21 @@ function trif(eler) {
     }, function (res, err, msg) {
         if (err != 0 || res === null || res.code != 200) {
             hErr("Send Live Tariff to Shelly cloud error, try again in " + _.freq / 60 + " min. " + err + " " + msg);
-            erMs = null;
             return;
         }
         let json = JSON.parse(res.body);
         res = null;
-        const nxMn = Math.round(sNxH() / 60);
-        // schedule the next price update
-        l_hd = Timer.set(1000 * sNxH(), false, trif, eler);
+        // schedule the next price update at the start of the next slot
+        let rem = sl[0] + sl[2] - Shelly.getComponentStatus("sys").unixtime;
+        rem = rem < 1 ? 1 : rem;
+        l_hd = Timer.set(1000 * rem, false, trif);
+        _.run = true;
         fKvs(json.price);
         _.upRq = false;
-        print(_.pId, "Live Tariff of " + json.price + " EUR/kWh incl. VAT has been sent to the Shelly cloud. The next update will be sent in " + nxMn + " minutes.");
+        print(_.pId, "Live Tariff of " + json.price + " EUR/kWh incl. VAT has been sent to the Shelly cloud. The next update will be sent in " + Math.round(rem / 60) + " minutes.");
         json = null;
+        const scr = Shelly.getComponentStatus("script", _.sId);
+        print(_.pId, "Memory used:", scr.mem_used, "peak:", scr.mem_peak);
     });
 }
 
@@ -566,16 +612,6 @@ function frmT(date) {
         + (date.getMonth() + 1) + "."
         + date.getFullYear();
 }
-// seconds to next hour
-function sNxH() {
-    const dur = c.is15 ? 15 : 60;
-    const now = new Date();
-    const sec = now.getSeconds();
-    const min = now.getMinutes();
-    const rSec = 60 - sec;
-    const rMin = dur - 1 - min % dur; //-1 because sec are added separately
-    return rSec + (rMin * 60);
-}
 // decode URI
 function dUri(eUri) {
     let uri = '';
@@ -596,7 +632,6 @@ function hErr(err) {
     console.log(_.pId, "# Internet error ", err);
     _.upRq = true;
     _.isLp = false;
-    Timer.clear(l_hd);
 }
 // wait RPC calls
 function wait(data) {
@@ -611,35 +646,28 @@ function wait(data) {
     }
 }
 
-/* Next hour for fetching Elering prices */
-function nxHr(adHr) {
-    const chkT = 24;
-    const hr = (Math.ceil((new Date(Date.now() + (adHr * 60 * 60 * 1000)).getHours() + 1) / chkT) * chkT) - 1;
-    return hr > 23 ? 23 : hr;
-}
-//check if update is needed 
-function updt(ts) {
-    const nHr = nxHr(0);                                //next hour for calculation
-    const now = new Date();                             //now
-    const yDt = new Date(now - 60 * 60 * 24 * 1000);    //yesterday
-    const tDt = new Date(ts * 1000);                    //timestamp
-    const tTd = tDt.getFullYear() === now.getFullYear() && tDt.getMonth() === now.getMonth() && tDt.getDate() === now.getDate();
-    const tYd = tDt.getFullYear() === yDt.getFullYear() && tDt.getMonth() === yDt.getMonth() && tDt.getDate() === yDt.getDate();
-    const tAft = tDt.getHours() === nHr && tTd;
-    const isTm = now.getHours() === nHr && now.getMinutes() >= _.updD;
-    return (isTm && !tAft) || !(tTd || tYd);
-}
-
 function loop() {
     if (_.isLp) {
         return;
     }
     _.isLp = true;
-    if (updt(_.tsPr) || _.upRq) {
+    if (_.upRq || fHr(Shelly.getComponentStatus("sys").unixtime)) {
         strt();
     } else {
         _.isLp = false;
     }
+}
+
+// run the loop every hour at the minute _.updD, the 5 min loop is the retry
+function schd() {
+    const now = new Date();
+    const cur = now.getMinutes() * 60 + now.getSeconds();
+    const tgt = _.updD * 60;
+    Timer.set(1000 * (cur < tgt ? tgt - cur : 3600 - cur + tgt), false, hrLp);
+}
+function hrLp() {
+    schd();
+    loop();
 }
 
 let isTm = false;
@@ -652,6 +680,7 @@ function fcTm() {
         isTm = true;
         //start the main loop with a random delay (2-7 sec) to avoid the same starting time for concurrent instances
         Timer.set(Math.floor(Math.random() * 5) + 2 * 1000, false, loop);
+        schd();
     } else {
         return;
     }

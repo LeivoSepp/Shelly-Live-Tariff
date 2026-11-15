@@ -32,6 +32,15 @@ This Shelly script automates electricity tariffs in the Shelly cloud by retrievi
 - Stores user settings in Shelly KVS or Virtual components (gen2 Pro or never devices).
 - Automatically starts on boot.
 
+### How the prices are retrieved and sent
+
+- Prices are requested from Elering **one hour at a time**: during the last 14 minutes before each full hour (at a random minute between 46 and 58, chosen when the script starts) the script downloads the prices of the **next hour** (four 15-minute prices). This keeps the response and the memory use small.
+- The network transmission fee is added to every 15-minute price based on its exact time, the VAT is added when the tariff is sent.
+- `IsEnergy15min = false` (1h meter): the four prices are averaged and one price is sent to Shelly cloud at the start of every hour.
+- `IsEnergy15min = true` (15min meter): the four prices are sent one by one, at the start of every 15-minute slot, before the next hour's prices are requested.
+- When the script starts, or if a request fails, the prices of the current hour are requested immediately. A failed request or a failed upload to Shelly cloud is retried every 5 minutes.
+- Elering must return 15-minute prices (four rows per hour), otherwise the request is treated as failed and retried.
+
 ## Installation
 
 ### New installation
@@ -98,9 +107,9 @@ The script supports the following network packages from [Elektrilevi](https://el
 - `VORK4`
 - `VORK5`
 - `PARTN24`
-- `PARTN24P`
+- `PARTN24PL`
 - `PARTN12`
-- `PARTN12P`
+- `PARTN12PL`
 - `PAMATA1`
 - `SPECIAL1`
 - `NONE`
@@ -179,8 +188,9 @@ There are many ways to explore the electricity usage cost.
 
 ### Script Monitoring 
 - The Virtual Component ``Live Tariff updated`` is updated whenever the tariff is sent to the Shelly Live Tariff cloud.
-- Fields ``LastCalculation`` and ``TariffUpdated`` under the ``LiveTariffSys`` in KVS is updated whenever electricity prices are pulled from Elering and the tariff is sent to the Shelly Live Tariff cloud.
-- The script will automatically run and update the Shelly Cloud Live Tariffs on an hourly basis.
+- Fields ``LastCalculation`` and ``TariffUpdated`` under the ``LiveTariffSys`` in KVS are updated every time the tariff is sent to the Shelly Live Tariff cloud. ``LastCalculation`` shows when the prices were last pulled from Elering.
+- The script will automatically run and update the Shelly Cloud Live Tariffs every hour (or every 15 minutes with a 15min meter).
+- After every tariff upload the script prints the memory usage to the console: ``Memory used: ... peak: ...`` (bytes).
 - To modify user settings, access the Shelly KVS via the Shelly web page: Menu → Advanced → KVS.
 - If your Shelly device supports Virtual components, you can modify settings directly from the Shelly web page or Shelly mobile app.
 

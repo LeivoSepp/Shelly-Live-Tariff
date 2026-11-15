@@ -26,11 +26,20 @@
 
 See Shelly skript automatiseerib elektritariifi Shelly pilves. Elektri börsihinnad laetakse alla Eleringi API kaudu ja Shelly Live Tariff uuendatakse iga tunni järel.
 
-- Börsihindade allalaadimine Eleringi API kaudu.
+- Börsihinnad laetakse alla Eleringi API kaudu.
 - Shelly Cloud Live Tariff uuendamine iga tunni või 15min järel.
 - Toetab Elektrilevi, Imatra ja Läti võrgupakette ja nelja riiki.
 - Salvestab kasutaja seaded Shelly KVS-i või Virtuaalsetesse komponentidesse (gen2 Pro või uuemate seadmete korral).
 - Skript käivitub automaatselt Shelly käivitumisel.
+
+### Kuidas hindu küsitakse ja saadetakse
+
+- Hindu küsitakse Eleringilt **ühe tunni kaupa**: iga täistunni eelse viimase 14 minuti jooksul (juhuslikul minutil 46–58, mis valitakse skripti käivitumisel) laeb skript alla **järgmise tunni** hinnad (neli 15-minutilist hinda). Nii jäävad vastus ja mälukasutus väikeseks.
+- Võrgutasu liidetakse igale 15-minutilisele hinnale selle täpse kellaaja järgi, käibemaks lisatakse tariifi saatmisel.
+- `IsEnergy15min = false` (1h arvesti): neli hinda keskmistatakse ja Shelly pilve saadetakse üks hind iga täistunni alguses.
+- `IsEnergy15min = true` (15min arvesti): neli hinda saadetakse ükshaaval, iga 15-minutilise lõigu alguses, enne kui küsitakse järgmise tunni hinnad.
+- Skripti käivitumisel või päringu ebaõnnestumisel küsitakse jooksva tunni hinnad kohe. Ebaõnnestunud päringut või Shelly pilve saatmist korratakse iga 5 minuti järel.
+- Elering peab tagastama 15-minutilised hinnad (neli rida tunnis), muidu loetakse päring ebaõnnestunuks ja korratakse.
 
 ## Paigaldamine
 
@@ -96,10 +105,10 @@ Skript toetab järgmisi [Elektrilevi](https://elektrilevi.ee/en/vorguleping/vorg
 - `VORK2`
 - `VORK4`
 - `VORK5`
-- `Partner24`
-- `Partner24Plus`
-- `Partner12`
-- `Partner12Plus`
+- `Partner24` (`PARTN24`)
+- `Partner24Plus` (`PARTN24PL`)
+- `Partner12` (`PARTN12`)
+- `Partner12Plus` (`PARTN12PL`)
 - `PAMATA1`
 - `SPECIAL1`
 - `NONE`
@@ -177,8 +186,9 @@ Elektri kulu monitoorimiseks on mitu võimalust.
 
 ### Skripti monitoorimine 
 - Virtuaalne komponent ``Live Tariff updated`` uuendatakse iga kord kui uus Live Tariff on saadetud Shelly Cloudi.
-- Väljad ``LastCalculation`` ja ``TariffUpdated`` uuendatakse ``LiveTariffSys`` all KVS-s iga kord kui Eleringist on saadud uued börsihinnad ja uus tariif on saadetud Shelly Cloudi.
-- Skript töötab automaatselt ja uuendab Shelly Cloud Live Tariffi iga tunni järel.
+- Väljad ``LastCalculation`` ja ``TariffUpdated`` uuendatakse ``LiveTariffSys`` all KVS-s iga kord kui tariif on saadetud Shelly Cloudi. ``LastCalculation`` näitab millal hinnad viimati Eleringist võeti.
+- Skript töötab automaatselt ja uuendab Shelly Cloud Live Tariffi iga tunni (15min arvesti korral iga 15 minuti) järel.
+- Peale iga tariifi saatmist prindib skript konsooli mälukasutuse: ``Memory used: ... peak: ...`` (baitides).
 - Kui teie Shelly seade toetab Virtuaalseid komponente, saate seadeid muuta otse Shelly veebilehelt või Shelly mobiilirakendusest.
 - Kasutaja seadete muutmine vanemate Shellyde korral kasutage selle IP-aadressi: Menu → Advanced → KVS.
 
