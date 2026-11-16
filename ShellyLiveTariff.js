@@ -75,7 +75,7 @@ let _ = {
     sl: 3600,       //slot length (s): 1h or 15min
     smr: false,     //device clock is on summer time (Imatra tariff)
     eler: null,     //price slots [start epoch, EUR/MWh with the transfer fee, length (s)] of the current and the next hour
-    newV: 1.8,
+    newV: 1.9,
     cdOk: false,    //conf OK
     sdOk: false,    //sys OK
 };
