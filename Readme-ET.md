@@ -35,7 +35,7 @@ See Shelly skript automatiseerib elektritariifi Shelly pilves. Elektri börsihin
 ### Kuidas hindu küsitakse ja saadetakse
 
 - Hindu küsitakse Eleringilt **ühe tunni kaupa**: iga täistunni eelse viimase 14 minuti jooksul (juhuslikul minutil 46–58, mis valitakse skripti käivitumisel) laeb skript alla **järgmise tunni** hinnad (neli 15-minutilist hinda). Nii jäävad vastus ja mälukasutus väikeseks.
-- Võrgutasu liidetakse igale 15-minutilisele hinnale selle täpse kellaaja järgi, käibemaks lisatakse tariifi saatmisel.
+- Võrgutasu liidetakse igale 15-minutilisele hinnale selle täpse kellaaja järgi. Tariifi saatmisel lisatakse püsitasud (Eesti: 21,81 EUR/MWh) ja käibemaks.
 - `IsEnergy15min = false` (1h arvesti): neli hinda keskmistatakse ja Shelly pilve saadetakse üks hind iga täistunni alguses.
 - `IsEnergy15min = true` (15min arvesti): neli hinda saadetakse ükshaaval, iga 15-minutilise lõigu alguses, enne kui küsitakse järgmise tunni hinnad.
 - Skripti käivitumisel või päringu ebaõnnestumisel küsitakse jooksva tunni hinnad kohe. Ebaõnnestunud päringut või Shelly pilve saatmist korratakse iga 5 minuti järel.

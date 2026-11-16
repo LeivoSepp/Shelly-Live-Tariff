@@ -29,12 +29,16 @@ function pack() {
         NONE: { dRt: 0, nRt: 0, dMRt: 0, hMRt: 0 },
     }
 }
-function vat() {
+/*
+Charges billed on top of the market price and the network fee, EUR/MWh without VAT, and the VAT rate.
+Estonia 2026: renewable energy 8.4, excise 2.1, security of supply 7.58, balancing capacity 3.73.
+*/
+function tax() {
     return {
-        ee: 1.24,    //Estonia
-        fi: 1.255,   //Finland
-        lt: 1.21,    //Lithuania
-        lv: 1.21,    //Latvia
+        ee: { fix: 21.81, vat: 0.24 },    //Estonia
+        fi: { fix: 0, vat: 0.255 },       //Finland
+        lt: { fix: 0, vat: 0.21 },        //Lithuania
+        lv: { fix: 0, vat: 0.21 },        //Latvia
     }
 }
 /****** PROGRAM INITIAL SETTINGS ******/
@@ -563,9 +567,10 @@ function trif() {
         hErr("No price for the current " + (c.is15 ? "15 min" : "hour") + ", get the prices again in " + _.freq / 60 + " min.");
         return;
     }
-    let cPrc = sl[1];           //get the current price
+    const tx = tax()[c.cnty];
+    let cPrc = sl[1] + tx.fix;  //current price with the network fee plus the charges
     cPrc = cPrc / 1000;         //convert EUR/MWh to EUR/kWh
-    cPrc = cPrc * eval("vat()." + c.cnty);         //add VAT
+    cPrc = cPrc * (1 + tx.vat); //add VAT
     cPrc = cPrc.toFixed(5); //round to 5 decimals
 
     Shelly.call(

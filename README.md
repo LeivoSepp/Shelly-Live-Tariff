@@ -35,7 +35,7 @@ This Shelly script automates electricity tariffs in the Shelly cloud by retrievi
 ### How the prices are retrieved and sent
 
 - Prices are requested from Elering **one hour at a time**: during the last 14 minutes before each full hour (at a random minute between 46 and 58, chosen when the script starts) the script downloads the prices of the **next hour** (four 15-minute prices). This keeps the response and the memory use small.
-- The network transmission fee is added to every 15-minute price based on its exact time, the VAT is added when the tariff is sent.
+- The network transmission fee is added to every 15-minute price based on its exact time. When the tariff is sent, the fixed charges (Estonia: 21.81 EUR/MWh) and the VAT are added.
 - `IsEnergy15min = false` (1h meter): the four prices are averaged and one price is sent to Shelly cloud at the start of every hour.
 - `IsEnergy15min = true` (15min meter): the four prices are sent one by one, at the start of every 15-minute slot, before the next hour's prices are requested.
 - When the script starts, or if a request fails, the prices of the current hour are requested immediately. A failed request or a failed upload to Shelly cloud is retried every 5 minutes.
